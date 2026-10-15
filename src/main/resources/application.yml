@@ -1,0 +1,87 @@
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+
+spring:
+  application:
+    name: enterprise-rag-assistant
+
+  threads:
+    virtual:
+      enabled: true
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:ragdb}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      pool-name: RagHikariPool
+      maximum-pool-size: 15
+      minimum-idle: 5
+      idle-timeout: 300000
+      connection-timeout: 20000
+      max-lifetime: 1200000
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        jdbc:
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 3000ms
+
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+
+# Gemini AI Client Settings
+gemini:
+  api-key: ${GEMINI_API_KEY:}
+  base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com/v1beta}
+  models:
+    embedding: ${GEMINI_MODELS_EMBEDDING:text-embedding-004}
+    chat: ${GEMINI_MODELS_CHAT:gemini-2.5-flash}
+  timeout-seconds: 30
+
+# RAG & Semantic Cache Configuration
+rag:
+  semantic-cache:
+    similarity-threshold: ${RAG_SEMANTIC_CACHE_SIMILARITY_THRESHOLD:0.92}
+    ttl-seconds: ${RAG_SEMANTIC_CACHE_TTL_SECONDS:86400}
+    cache-key-prefix: "rag:semcache:"
+  search:
+    top-k: ${RAG_SEARCH_TOP_K:5}
+    min-similarity: ${RAG_SEARCH_MIN_SIMILARITY:0.65}
+  chunking:
+    target-chunk-size: 1800
+    chunk-overlap: 200
+
+# SpringDoc OpenAPI / Swagger UI
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+    tagsSorter: alpha
+    display-request-duration: true
+
+# Logging Configuration
+logging:
+  level:
+    root: INFO
+    com.haanh.ragassistant: DEBUG
+    org.springframework.data.redis: INFO

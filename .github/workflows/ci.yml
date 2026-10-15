@@ -1,0 +1,70 @@
+name: Enterprise RAG CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main", "master", "develop" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: ragdb
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21 (Eclipse Temurin)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Initialize PostgreSQL pgvector schema
+        run: |
+          docker cp docker/init.sql $(docker ps --filter "ancestor=pgvector/pgvector:pg16" --format "{{.ID}}"):/init.sql
+          docker exec $(docker ps --filter "ancestor=pgvector/pgvector:pg16" --format "{{.ID}}") psql -U postgres -d ragdb -f /init.sql
+
+      - name: Run Unit & Integration Tests with Maven
+        env:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: ragdb
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          GEMINI_API_KEY: ci-test-placeholder-key
+        run: mvn clean test --batch-mode
+
+      - name: Package JAR Artifact
+        run: mvn package -DskipTests --batch-mode
+
+      - name: Build Docker Image
+        run: docker build -t enterprise-rag-assistant:latest .
